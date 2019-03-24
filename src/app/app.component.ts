@@ -1,9 +1,20 @@
 import { Component, OnInit, HostListener } from '@angular/core';
 import { Router, ActivatedRoute, NavigationEnd } from '@angular/router';
-import { filter, map } from 'rxjs/operators';
-import { BreakpointObserver } from '@angular/cdk/layout';
+import { filter, map, takeUntil } from 'rxjs/operators';
+import { BreakpointObserver,  } from '@angular/cdk/layout';
+import { Subject } from 'rxjs';
 
 declare var OverlayScrollbars;
+
+export type BreakpointType = 'xs' | 'sm' |  'md' | 'lg' | 'xl';
+
+export const BreakpointsMedia = {
+  xs: '(max-width: 575px)',
+  sm: '(min-width: 576px) and (max-width: 767px)',
+  md: '(min-width: 768px) and (max-width: 991px)',
+  lg: '(min-width: 992px) and (max-width: 1199px)',
+  xl: '(min-width: 1200px)'
+};
 
 @Component({
   selector: 'app-root',
@@ -12,57 +23,44 @@ declare var OverlayScrollbars;
 })
 export class AppComponent implements OnInit {
   ob: any[] | any;
-  windowWidth: number;
   smallDevice: boolean;
   showSidebar: boolean;
-  r = 0;
+
+  private unsubscribeAll: Subject<any> = new Subject();
 
   constructor(
     private router: Router,
     private activatedRoute: ActivatedRoute,
-    private breakpointObserver: BreakpointObserver
+    private breakpointObserver: BreakpointObserver,
   ) {}
 
   ngOnInit() {
     this.setScroll();
     this.changeRouter();
+    this.setBreakPoint();
 
-    this.windowWidth = window.innerWidth;
-
-    if (this.windowWidth < 992) {
-      this.smallDevice = true;
-    } else {
-      this.smallDevice = false;
-    }
-
-    const layoutChanges = this.breakpointObserver.observe([
-      '(orientation: portrait)',
-      '(orientation: landscape)',
-    ]);
-
-    layoutChanges.subscribe(result => {
-      this.windowWidth = window.innerWidth;
-
-      if (this.windowWidth < 992) {
-        this.smallDevice = true;
-        this.showSidebar = false;
-      } else {
-        this.smallDevice = false;
-        this.showSidebar = true;
-      }
-    });
   }
 
-  @HostListener('window:resize', ['$event'])
-  onResize(event) {
-    this.windowWidth = event.target.innerWidth as number;
-
-    if (this.windowWidth < 992) {
-      this.smallDevice = true;
-      this.showSidebar = false;
-    } else {
-      this.smallDevice = false;
-      this.showSidebar = true;
+  private setBreakPoint() {
+    for (const breakPoint in BreakpointsMedia) {
+      if (breakPoint) {
+        this.breakpointObserver.observe([BreakpointsMedia[breakPoint]])
+        .pipe(
+          takeUntil(this.unsubscribeAll),
+          filter(resp => resp.matches === true),
+          map(resp => resp.breakpoints)
+        )
+        .subscribe( () => {
+          const breakpoint: BreakpointType = breakPoint as BreakpointType;
+          if (breakpoint === 'xl' || breakpoint === 'lg') {
+            this.showSidebar = true;
+            this.smallDevice = false;
+          } else {
+            this.showSidebar = false;
+            this.smallDevice = true;
+          }
+        });
+      }
     }
   }
 
